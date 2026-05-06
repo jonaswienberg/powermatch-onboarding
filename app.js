@@ -17,7 +17,8 @@ const STORAGE = {
   CONTENT_OVERRIDES: 'pm_content_overrides',
   PENDING_MAGIC: 'pm_pending_magic'
 };
-const ADMIN_EMAIL = 'jw@powermatch.dk';
+const ADMIN_EMAILS = ['jw@powermatch.dk', 'sp@powermatch.dk'];
+const ADMIN_EMAIL = ADMIN_EMAILS[0]; // kept for backwards-compat
 
 const load = (k, def = null) => {
   try { return JSON.parse(localStorage.getItem(k)) ?? def; }
@@ -149,7 +150,7 @@ function makeRealisticTimings(moduleId, mp, profile) {
 function currentSession() { return load(STORAGE.SESSION); }
 function isAdmin() {
   const s = currentSession();
-  return s && s.email === ADMIN_EMAIL;
+  return !!(s && ADMIN_EMAILS.includes(s.email));
 }
 async function logout() {
   try { await sb.auth.signOut(); } catch (e) { /* ignore */ }
@@ -424,7 +425,7 @@ window.cancelMagic = async function () {
 };
 
 function renderOnboarding(email) {
-  const isAdminUser = email === ADMIN_EMAIL;
+  const isAdminUser = ADMIN_EMAILS.includes(email);
   render(`
     <div class="s-surface">
       <div class="s-login">
@@ -1468,7 +1469,7 @@ route('/manager/:email', ({ email }) => {
 function renderManager(detailEmail = null) {
   const c = getContent();
   const users = load(STORAGE.USERS, {});
-  const trainees = Object.entries(users).filter(([e]) => e !== ADMIN_EMAIL);
+  const trainees = Object.entries(users).filter(([e]) => !ADMIN_EMAILS.includes(e));
 
   let totalCount = 0, totalCompleted = 0, totalScoreSum = 0, totalScoreN = 0;
   let traineesInProgress = 0;

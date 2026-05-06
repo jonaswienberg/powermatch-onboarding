@@ -4,6 +4,11 @@
    Three surfaces: trainee, manager dashboard, content authoring.
    ============================================================ */
 
+/* ---------- SUPABASE ---------- */
+const SUPABASE_URL = 'https://cvxjrzkbkuayqhmuxnbz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2eGpyemtia3VheXFobXV4bmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTAzMTksImV4cCI6MjA5MzY2NjMxOX0.kGnu5mai1KnQMcY64zHcOMc3nawULKVOEsITvWPZ4es';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 /* ---------- STORAGE ---------- */
 const STORAGE = {
   USERS: 'pm_users',
@@ -146,7 +151,12 @@ function isAdmin() {
   const s = currentSession();
   return s && s.email === ADMIN_EMAIL;
 }
-function logout() { remove(STORAGE.SESSION); navigate('/'); }
+async function logout() {
+  try { await sb.auth.signOut(); } catch (e) { /* ignore */ }
+  remove(STORAGE.SESSION);
+  remove(STORAGE.PENDING_MAGIC);
+  navigate('/');
+}
 
 function getProgress(email) { return load(STORAGE.PROGRESS_PREFIX + email, {}); }
 function saveProgress(email, p) { save(STORAGE.PROGRESS_PREFIX + email, p); }
@@ -290,6 +300,9 @@ function topbar(active = '') {
    ROUTE: LOGIN / HOME
    ============================================================ */
 route('/', () => {
+  if (window._needsOnboarding) {
+    return renderOnboarding(window._needsOnboarding);
+  }
   const s = currentSession();
   if (!s) return renderLogin();
   return renderHome();
@@ -316,15 +329,14 @@ function renderLogin() {
           </div>
           <div class="s-login-right">
             <div class="s-login-form">
-              <div class="sup">— Demo-tilstand</div>
-              <h2>Magic link sendt</h2>
-              <p class="lede">Vi har sendt et magisk link til ${escapeHtml(pending.email)}. I demo-tilstand er linket simuleret — klik nedenfor for at fortsætte.</p>
+              <div class="sup">— Magic link på vej</div>
+              <h2>Tjek din indbakke</h2>
+              <p class="lede">Vi har sendt et magic link til ${escapeHtml(pending.email)}. Åbn mailen og klik på linket for at logge ind. Du kan lukke denne fane bagefter.</p>
               <div class="s-magic-sent">
-                <strong>Klar til at logge ind</strong>
+                <strong>Magic link sendt</strong>
                 <span style="font-size:13px">${escapeHtml(pending.email)}</span>
               </div>
-              <button class="s-btn s-btn-ink s-btn-arrow" onclick="confirmMagic()">Log ind</button>
-              <div class="alt"><a href="#" onclick="event.preventDefault();cancelMagic()">Brug en anden mail</a></div>
+              <div class="alt">Modtog du ikke mailen inden for et par minutter? Tjek dit spam-filter, eller <a href="#" onclick="event.preventDefault();cancelMagic()">brug en anden mail</a>.</div>
             </div>
           </div>
         </div>
@@ -376,29 +388,38 @@ function renderLogin() {
     </div>
   `);
 
-  document.getElementById('login-form').addEventListener('submit', e => {
+  document.getElementById('login-form').addEventListener('submit', async e => {
     e.preventDefault();
     const email = document.getElementById('email').value.trim().toLowerCase();
     if (!email) return;
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalLabel = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = 'Sender...';
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirectTo }
+    });
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
+    if (error) {
+      alert('Kunne ikke sende magic link: ' + error.message);
+      return;
+    }
     save(STORAGE.PENDING_MAGIC, { email, ts: Date.now() });
     renderLogin();
   });
 }
 
-window.confirmMagic = function () {
-  const pending = load(STORAGE.PENDING_MAGIC);
-  if (!pending) return;
-  const users = load(STORAGE.USERS, {});
-  let user = users[pending.email];
-  if (!user) return renderOnboarding(pending.email);
-  save(STORAGE.SESSION, { email: pending.email, name: user.name, role: user.role });
-  remove(STORAGE.PENDING_MAGIC);
-  toast('Du er logget ind');
-  navigate('/');
-};
+// Magic link confirmation is now handled by Supabase via the redirect URL.
+// Kept as a safe no-op for backwards-compatibility.
+window.confirmMagic = function () {};
 
-window.cancelMagic = function () {
+window.cancelMagic = async function () {
+  try { await sb.auth.signOut(); } catch (e) { /* ignore */ }
   remove(STORAGE.PENDING_MAGIC);
+  delete window._needsOnboarding;
   renderLogin();
 };
 
@@ -470,6 +491,7 @@ function renderOnboarding(email) {
     save(STORAGE.USERS, users);
     save(STORAGE.SESSION, { email, name, role });
     remove(STORAGE.PENDING_MAGIC);
+    delete window._needsOnboarding;
     toast('Velkommen ombord ' + name.split(' ')[0]);
     navigate('/');
   });
@@ -2191,4 +2213,50 @@ window.resetAuthor = function (moduleId) {
 /* ---------- BOOT ---------- */
 window.navigate = navigate;
 window.logout = logout;
-dispatch();
+
+// Bridge a Supabase session into the app's local session shape.
+// If the email isn't known to this device yet, mark them for onboarding.
+function applySupabaseSession(session) {
+  if (session && session.user && session.user.email) {
+    const email = session.user.email.toLowerCase();
+    const users = load(STORAGE.USERS, {});
+    const user = users[email];
+    if (user) {
+      save(STORAGE.SESSION, { email, name: user.name, role: user.role });
+      delete window._needsOnboarding;
+      remove(STORAGE.PENDING_MAGIC);
+    } else {
+      remove(STORAGE.SESSION);
+      window._needsOnboarding = email;
+    }
+  } else {
+    remove(STORAGE.SESSION);
+    delete window._needsOnboarding;
+  }
+}
+
+let _bootDispatched = false;
+sb.auth.onAuthStateChange((event, session) => {
+  applySupabaseSession(session);
+  if (!_bootDispatched) {
+    _bootDispatched = true;
+    dispatch();
+    return;
+  }
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+    if (event === 'SIGNED_IN') {
+      const s = currentSession();
+      if (s) toast('Du er logget ind');
+    }
+    navigate('/');
+    dispatch();
+  }
+});
+
+// Fallback: if onAuthStateChange somehow doesn't fire (very rare), boot anyway.
+setTimeout(() => {
+  if (!_bootDispatched) {
+    _bootDispatched = true;
+    dispatch();
+  }
+}, 1500);

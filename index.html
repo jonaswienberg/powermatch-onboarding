@@ -3,119 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PowerMatch — Onboarding (Soft)</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles-soft.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='10' fill='%230B0B0C'/%3E%3Crect x='10' y='10' width='12' height='12' rx='3' transform='rotate(45 16 16)' fill='%23F5E84A'/%3E%3C/svg%3E" />
-  <style>
-    body { background: #F4F1EA; }
-    body[data-yellow="restrained"] { --pm-yellow: #F5E84A; }
-    body[data-yellow="balanced"] { --pm-yellow: #F5E84A; }
-    body[data-yellow="bold"] { --pm-yellow: #FFE600; }
-  </style>
+  <title>PowerMatch — Onboarding & Træning</title>
+  <meta name="description" content="PowerMatch onboarding-platform: lær virksomheden, branchen og din rolle at kende." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F5E84A'/%3E%3Cpath d='M9 8h10l4 4-4 4h-10z' fill='%230A0A0A'/%3E%3C/svg%3E">
 </head>
 <body>
-  <div id="root"></div>
+  <div id="app" class="app"></div>
 
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
-
-  <script type="text/babel" data-presets="react" src="design-canvas.jsx"></script>
-  <script type="text/babel" data-presets="react" src="tweaks-panel.jsx"></script>
-  <script type="text/babel" data-presets="react" src="soft-surfaces.jsx"></script>
-
-  <script type="text/babel" data-presets="react">
-    const { useEffect } = React;
-
-    const TWEAK_DEFAULTS_SOFT = /*EDITMODE-BEGIN*/{
-      "yellow": "restrained"
-    }/*EDITMODE-END*/;
-
-    function App() {
-      const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS_SOFT);
-
-      useEffect(() => {
-        document.body.dataset.yellow = tweaks.yellow;
-      }, [tweaks.yellow]);
-
-      const {
-        DesignCanvas, DCSection, DCArtboard,
-        TweaksPanel, TweakSection, TweakRadio
-      } = window;
-
-      return (
-        <>
-          <DesignCanvas
-            title="PowerMatch — Onboarding · Soft"
-            subtitle="Rounded software variant · samme indhold, samme palette"
-          >
-            <DCSection id="trainee" title="Trainee — Læring">
-              <DCArtboard id="login" label="Login" width={1280} height={820}>
-                <window.SoftLogin />
-              </DCArtboard>
-              <DCArtboard id="home" label="Hjem · modul-oversigt" width={1280} height={1480}>
-                <window.SoftTraineeHome />
-              </DCArtboard>
-              <DCArtboard id="cover" label="Modul-forside" width={1280} height={900}>
-                <window.SoftCoverSlide />
-              </DCArtboard>
-              <DCArtboard id="player" label="Slide · lede + tre-kolonner" width={1280} height={900}>
-                <window.SoftModulePlayer />
-              </DCArtboard>
-              <DCArtboard id="quiz" label="Quiz · spørgsmål" width={1280} height={900}>
-                <window.SoftQuizSurface />
-              </DCArtboard>
-              <DCArtboard id="summary" label="Modul færdig · resultat" width={1280} height={900}>
-                <window.SoftSummarySurface />
-              </DCArtboard>
-            </DCSection>
-
-            <DCSection id="manager" title="Manager — Dashboard">
-              <DCArtboard id="dash" label="Dashboard · alle trainees" width={1280} height={1180}>
-                <window.SoftManagerDashboard />
-              </DCArtboard>
-              <DCArtboard id="drawer" label="Trainee-detaljer · drawer åben" width={1280} height={1180}>
-                <window.SoftManagerDrawer />
-              </DCArtboard>
-            </DCSection>
-
-            <DCSection id="author" title="Author — Indhold">
-              <DCArtboard id="editor" label="Modul-editor · kapitel + quiz" width={1440} height={1080}>
-                <window.SoftAuthoringSurface />
-              </DCArtboard>
-            </DCSection>
-          </DesignCanvas>
-
-          <TweaksPanel title="Tweaks">
-            <TweakSection title="Gult — intensitet">
-              <TweakRadio
-                value={tweaks.yellow}
-                onChange={(v) => setTweak("yellow", v)}
-                options={[
-                  { value: "restrained", label: "Stille" },
-                  { value: "balanced", label: "Balanceret" },
-                  { value: "bold", label: "Skarp" }
-                ]}
-              />
-            </TweakSection>
-          </TweaksPanel>
-        </>
-      );
-    }
-
-    function start() {
-      if (!window.DesignCanvas || !window.TweaksPanel || !window.useTweaks ||
-          !window.SoftTraineeHome || !window.SoftModulePlayer || !window.SoftQuizSurface ||
-          !window.SoftSummarySurface || !window.SoftManagerDashboard || !window.SoftManagerDrawer ||
-          !window.SoftAuthoringSurface || !window.SoftLogin || !window.SoftCoverSlide) {
-        return setTimeout(start, 50);
-      }
-      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-    }
-    start();
-  </script>
+  <script src="content.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
